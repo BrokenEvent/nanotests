@@ -50,7 +50,7 @@ import static org.junit.Assert.assertEquals;
  *
  * @author BrokenEvent
  */
-public class XmlAssert {
+public final class XmlAssert {
   /**
    * Protect constructor since it is a static only class
    */

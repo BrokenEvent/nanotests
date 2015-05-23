@@ -100,7 +100,6 @@ class TestRequestImpl implements TestRequest {
    * Gets the fully qualified request URL.
    * @return fully qualified request URL
    */
-  @Override
   public String getRequestUrl() {
     return hostUrl + resource;
   }
@@ -109,7 +108,6 @@ class TestRequestImpl implements TestRequest {
    * Gets the http response object.
    * @return http response object
    */
-  @Override
   public HttpResponse getResponse() {
     return response;
   }

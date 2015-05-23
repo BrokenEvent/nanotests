@@ -68,11 +68,11 @@ public class UrlAssert {
   /**
    * Asserts that the given URL's protocol is equal to the expected value. If it isn't, an {@link AssertionError} is thrown with the given message.<br>
    * URL example: <b>http</b>://test.com/testpage
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param expected expected protocol value
    * @param url url to check
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertUrlProtocol(String expected, String url, String message) {
+  public static void assertUrlProtocol(String message, String expected, String url) {
     try {
       assertEquals(message, expected, new UrlParser(url).getProtocol());
     } catch (UnsupportedEncodingException e) {
@@ -97,11 +97,11 @@ public class UrlAssert {
   /**
    * Asserts that the given URL's domain part is equal to the expected value. If it isn't, an {@link AssertionError} is thrown with the given message.<br>
    * URL example: http://<b>test.com</b>/testpage
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param expected expected domain value
    * @param url url to check
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertUrlDomain(String expected, String url, String message) {
+  public static void assertUrlDomain(String message, String expected, String url) {
     try {
       assertEquals(message, expected, new UrlParser(url).getDomain());
     } catch (UnsupportedEncodingException e) {
@@ -126,11 +126,11 @@ public class UrlAssert {
   /**
    * Asserts that the given URL's resource part is equal to the expected value. If it isn't, an {@link AssertionError} is thrown with the given message.<br>
    * URL example: http://test.com<b>/testpage</b>
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param expected expected resource value
    * @param url url to check
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertUrlResource(String expected, String url, String message) {
+  public static void assertUrlResource(String message, String expected, String url) {
     try {
       assertEquals(message, expected, new UrlParser(url).getResource());
     } catch (UnsupportedEncodingException e) {
@@ -154,12 +154,12 @@ public class UrlAssert {
 
   /**
    * Asserts that the given URL contains given param and it equals the given value. If it isn't, an {@link AssertionError} is thrown with the given message.
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param expectedValue expected param's value
    * @param url url to check
    * @param paramName param name to check its value
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertUrlParam(String expectedValue, String url, String paramName, String message) {
+  public static void assertUrlParam(String message, String expectedValue, String url, String paramName) {
     try {
       assertEquals(message, expectedValue, new UrlParser(url).getParam(paramName));
     } catch (UnsupportedEncodingException e) {
@@ -182,11 +182,11 @@ public class UrlAssert {
 
   /**
    * Asserts that the given URL have param with the given name. If it isn't, an {@link AssertionError} is thrown with the given message.
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param url url to check
    * @param paramName param name to check its existance
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertUrlHaveParam(String url, String paramName, String message) {
+  public static void assertUrlHaveParam(String message, String url, String paramName) {
     try {
       assertTrue(message, new UrlParser(url).haveParam(paramName));
     } catch (UnsupportedEncodingException e) {

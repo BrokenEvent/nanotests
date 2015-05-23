@@ -24,6 +24,7 @@
 
 package com.brokenevent.nanotests;
 
+import com.brokenevent.nanotests.db.ConnectionWrapper;
 import org.junit.Assert;
 
 import java.sql.*;
@@ -46,14 +47,17 @@ import java.util.Map;
  *
  * @author BrokenEvent
  */
-public class DbAssert {
+public final class DbAssert {
   /**
    * Protect constructor since it is a static only class
    */
   protected DbAssert(){}
 
-  private static Connection connection;
+  private static List<ConnectionWrapper> wrappers = new ArrayList<ConnectionWrapper>();
   private static final Object lock = new Object();
+  private static String connectionString;
+  private static String login;
+  private static String password;
 
   /**
    * Initialize DbAssert before usage. Should be called from {@link org.junit.Before} or {@link org.junit.BeforeClass} method of the testcase.
@@ -65,11 +69,23 @@ public class DbAssert {
   public static void initDbAssert(String connectionString, String login, String password, String driverClassName){
     try {
       Class.forName(driverClassName);
-      connection = DriverManager.getConnection(connectionString, login, password);
+      DbAssert.connectionString = connectionString;
+      DbAssert.login = login;
+      DbAssert.password = password;
     } catch (ClassNotFoundException e) {
       throw new AssertionError("Failed to register db driver: " + driverClassName, e);
-    } catch (SQLException e) {
-      throw new AssertionError("Unable to connect to db: " + connectionString, e);
+    }
+  }
+
+  private static ConnectionWrapper getConnection() throws SQLException {
+    synchronized (lock){
+      for (ConnectionWrapper wrapper: wrappers)
+        if (!wrapper.isBusy())
+          return wrapper;
+
+      ConnectionWrapper wrapper = new ConnectionWrapper(connectionString, login, password);
+      wrappers.add(wrapper);
+      return wrapper;
     }
   }
 
@@ -78,8 +94,14 @@ public class DbAssert {
    */
   public static void shutdownDbAssert(){
     try{
-      connection.close();
-      connection = null;
+      for(ConnectionWrapper wrapper: wrappers)
+        if (wrapper.isBusy())
+          return;
+
+      for (ConnectionWrapper wrapper: wrappers)
+        wrapper.release();
+
+      wrappers.clear();
     }catch (SQLException e){
       throw new AssertionError("Failed to disconnect from db", e);
     }
@@ -91,21 +113,20 @@ public class DbAssert {
    * @return query result
    */
   public static List<Map<String, Object>> query(String sql){
-    Statement statement = null;
-    synchronized (lock){
-      try {
-        statement = connection.createStatement();
-        return processResultSet(statement.executeQuery(sql));
-      } catch (SQLException e) {
-        throw new AssertionError("Fail on process result set for " + sql);
-      } finally {
-        if (statement != null)
-          try {
-            statement.close();
-          } catch (SQLException e) {
-            Assert.fail("Failed to close SQL statement");
-          }
-      }
+    ConnectionWrapper wrapper = null;
+    try {
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
+      return processResultSet(statement.executeQuery(sql));
+    } catch (SQLException e) {
+      throw new AssertionError("Fail on process result set for " + sql);
+    } finally {
+      if (wrapper != null)
+        try {
+          wrapper.close();
+        } catch (SQLException e) {
+          Assert.fail("Failed to close SQL statement");
+        }
     }
   }
 
@@ -115,22 +136,21 @@ public class DbAssert {
    * @return query result
    */
   public static Map<String, Object> querySingle(String sql){
-    Statement statement = null;
-    synchronized (lock){
-      try {
-        statement = connection.createStatement();
-        return processResultSetSingle(statement.executeQuery(sql));
-      } catch (SQLException e) {
-        e.printStackTrace();
-        throw new AssertionError("Fail on process result set for " + sql);
-      } finally {
-        if (statement != null)
-          try {
-            statement.close();
-          } catch (SQLException e) {
-            Assert.fail("Failed to close SQL statement");
-          }
-      }
+    ConnectionWrapper wrapper = null;
+    try {
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
+      return processResultSetSingle(statement.executeQuery(sql));
+    } catch (SQLException e) {
+      e.printStackTrace();
+      throw new AssertionError("Fail on process result set for " + sql);
+    } finally {
+      if (wrapper != null)
+        try {
+          wrapper.close();
+        } catch (SQLException e) {
+          Assert.fail("Failed to close SQL statement");
+        }
     }
   }
 
@@ -140,22 +160,21 @@ public class DbAssert {
    * @return query result
    */
   public static <T> List<T> querySingleColumn(String sql){
-    Statement statement = null;
-    synchronized (lock){
-      try {
-        statement = connection.createStatement();
-        return processResultSetSingleColumn(statement.executeQuery(sql));
-      } catch (SQLException e) {
-        e.printStackTrace();
-        throw new AssertionError("Fail on process result set for " + sql);
-      } finally {
-        if (statement != null)
-          try {
-            statement.close();
-          } catch (SQLException e) {
-            Assert.fail("Failed to close SQL statement");
-          }
-      }
+    ConnectionWrapper wrapper = null;
+    try {
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
+      return processResultSetSingleColumn(statement.executeQuery(sql));
+    } catch (SQLException e) {
+      e.printStackTrace();
+      throw new AssertionError("Fail on process result set for " + sql);
+    } finally {
+      if (wrapper != null)
+        try {
+          wrapper.close();
+        } catch (SQLException e) {
+          Assert.fail("Failed to close SQL statement");
+        }
     }
   }
 
@@ -164,16 +183,17 @@ public class DbAssert {
    * @param sql query text
    */
   public static void execute(String sql){
-    Statement statement = null;
-    try{
-      statement = connection.createStatement();
+    ConnectionWrapper wrapper = null;
+    try {
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
       statement.execute(sql);
     } catch (SQLException e) {
       throw new AssertionError("Fail on execute: " + sql, e);
     } finally {
-      if (statement != null)
+      if (wrapper != null)
         try {
-          statement.close();
+          wrapper.close();
         } catch (SQLException e) {
           Assert.fail("Failed to close SQL statement");
         }
@@ -223,23 +243,22 @@ public class DbAssert {
    * @param sql SQL query text
    */
   public static void assertQueryNotNull(String sql){
-    Statement statement = null;
-    synchronized (lock){
-      try {
-        statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
-        if (!resultSet.next())
-          Assert.fail("Query <" + sql + "> result is empty, but expected to be not empty");
-      } catch (SQLException e) {
-        throw new AssertionError("Fail on resultSet.next()");
-      } finally {
-        if (statement != null)
-          try {
-            statement.close();
-          } catch (SQLException e) {
-            Assert.fail("Failed to close SQL statement");
-          }
-      }
+    ConnectionWrapper wrapper = null;
+    try {
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
+      ResultSet resultSet = statement.executeQuery(sql);
+      if (!resultSet.next())
+        Assert.fail("Query <" + sql + "> result is empty, but expected to be not empty");
+    } catch (SQLException e) {
+      throw new AssertionError("Fail on resultSet.next()");
+    } finally {
+      if (wrapper != null)
+        try {
+          wrapper.close();
+        } catch (SQLException e) {
+          Assert.fail("Failed to close SQL statement");
+        }
     }
   }
 
@@ -248,23 +267,29 @@ public class DbAssert {
    * @param sql SQL query text
    */
   public static void assertQueryNull(String sql){
-    Statement statement = null;
-    synchronized (lock){
-      try {
-        statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(sql);
-        if (resultSet.next())
-          Assert.fail("Query <" + sql + "> result is not empty, but expected to be empty");
-      } catch (SQLException e) {
-        throw new AssertionError("Fail on resultSet.next()");
-      } finally {
-        if (statement != null)
-          try {
-            statement.close();
-          } catch (SQLException e) {
-            Assert.fail("Failed to close SQL statement");
-          }
-      }
+    ConnectionWrapper wrapper = null;
+    ResultSet resultSet = null;
+    try {
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
+      resultSet = statement.executeQuery(sql);
+      if (resultSet.next())
+        Assert.fail("Query <" + sql + "> result is not empty, but expected to be empty");
+    } catch (SQLException e) {
+      throw new AssertionError("Fail on resultSet.next()");
+    } finally {
+      if (resultSet != null)
+        try {
+          resultSet.close();
+        } catch (SQLException e) {
+          Assert.fail("Failed to close SQL ResultSet");
+        }
+      if (wrapper != null)
+        try {
+          wrapper.close();
+        } catch (SQLException e) {
+          Assert.fail("Failed to close SQL statement");
+        }
     }
   }
 
@@ -273,6 +298,8 @@ public class DbAssert {
    * If it isn't, an {@link AssertionError} is thrown.<br>
    * The last ID will be got by a query:
    * <pre>SELECT MAX(id) FROM table</pre>
+   * Beware to use this assertion when running multiple tests interconnected with
+   * a single table at once. Some tests can fail due to thread operations intersection.
    * @param table table name to query from
    * @param id table primary key field name
    * @param field field name to assert value from
@@ -288,6 +315,8 @@ public class DbAssert {
    * If it isn't, an {@link AssertionError} is thrown.<br>
    * The last ID will be got by a query:
    * <pre>SELECT MAX(id) FROM table</pre>
+   * Beware to use this assertion when running multiple tests interconnected with
+   * a single table at once. Some tests can fail due to thread operations intersection.
    * @param table table name to query from
    * @param id table primary key field name
    * @param field field name to assert value from
@@ -303,6 +332,25 @@ public class DbAssert {
    * If it isn't, an {@link AssertionError} is thrown.<br>
    * The last ID will be got by a query:
    * <pre>SELECT MAX(id) FROM table</pre>
+   * Beware to use this assertion when running multiple tests interconnected with
+   * a single table at once. Some tests can fail due to thread operations intersection.
+   * @param table table name to query from
+   * @param id table primary key field name
+   * @param field field name to assert value from
+   * @param expected expected value
+   */
+  public static void assertLastRow(String table, String id, String field, java.util.Date expected){
+    Map<String, Object> result = querySingle("SELECT " + field + " FROM " + table + " WHERE " + id + " = (SELECT MAX(" + id + ") FROM " + table + ")");
+    Assert.assertEquals(expected, result.get(field));
+  }
+
+  /**
+   * Asserts that the value from the last row of the table equals given value.
+   * If it isn't, an {@link AssertionError} is thrown.<br>
+   * The last ID will be got by a query:
+   * <pre>SELECT MAX(id) FROM table</pre>
+   * Beware to use this assertion when running multiple tests interconnected with
+   * a single table at once. Some tests can fail due to thread operations intersection.
    * @param table table name to query from
    * @param id table primary key field name
    * @param field field name to assert value from
@@ -338,11 +386,12 @@ public class DbAssert {
   }
 
   private static Object getLastId(String table, String id){
-    Statement statement = null;
+    ConnectionWrapper wrapper = null;
     ResultSet resultSet = null;
     String sql = "SELECT MAX(" + id + ") FROM " + table;
     try{
-      statement = connection.createStatement();
+      wrapper = getConnection();
+      Statement statement = wrapper.getStatement();
       resultSet = statement.executeQuery(sql);
       if (resultSet.next())
         return resultSet.getObject(1);
@@ -357,9 +406,9 @@ public class DbAssert {
         } catch (SQLException e) {
           Assert.fail("Failed to close SQL ResultSet");
         }
-      if (statement != null)
+      if (wrapper != null)
         try {
-          statement.close();
+          wrapper.close();
         } catch (SQLException e) {
           Assert.fail("Failed to close SQL statement");
         }

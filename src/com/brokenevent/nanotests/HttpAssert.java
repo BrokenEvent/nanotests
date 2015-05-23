@@ -48,7 +48,7 @@ import java.util.regex.Pattern;
  *
  * @author BrokenEvent
  */
-public class HttpAssert {
+public final class HttpAssert {
   /**
    * Protect constructor since it is a static only class
    */
@@ -72,10 +72,10 @@ public class HttpAssert {
    * Asserts that the http query result code is OK (200). If it isn't, an {@link AssertionError} is thrown with the given message.<br>
    * Use this method to make a set of asserts for a single request.
    * To just check the result code for request, use {@link com.brokenevent.nanotests.HttpAssert#assertHttpOk(String)}.
-   * @param request {@link TestRequest} to get result from
    * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
+   * @param request {@link TestRequest} to get result from
    */
-  public static void assertHttpOk(TestRequest request, String message){
+  public static void assertHttpOk(String message, TestRequest request){
     Assert.assertEquals(message, 200, request.getResponse().getStatusLine().getStatusCode());
   }
 
@@ -94,11 +94,11 @@ public class HttpAssert {
    * Asserts that the http query result code is equal with the expected. If it isn't, an {@link AssertionError} is thrown with the given message.<br>
    * Use this method to make a set of asserts for a single request.
    * To just check the result code for request, use {@link com.brokenevent.nanotests.HttpAssert#assertHttpCode(String, int)}.
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param request {@link TestRequest} to get result from
    * @param code expected http code value
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertHttpCode(TestRequest request, int code, String message){
+  public static void assertHttpCode(String message, TestRequest request, int code){
     Assert.assertEquals(message, code, request.getResponse().getStatusLine().getStatusCode());
   }
 
@@ -118,12 +118,12 @@ public class HttpAssert {
   /**
    * Asserts that the http query result contains expected header field and its value is equal to expected.
    * If it isn't equal to the expected or header doesn't contains expected header, an {@link AssertionError} is thrown with the given message.
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param request {@link TestRequest} to get result from.
    * @param name header field name
    * @param value expected header value
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertHttpHeader(TestRequest request, String name, String value, String message){
+  public static void assertHttpHeader(String message, TestRequest request, String name, String value){
     Header header = request.getResponse().getLastHeader(name);
     Assert.assertNotNull(message, header);
     Assert.assertEquals(message, value, header.getValue());
@@ -143,11 +143,11 @@ public class HttpAssert {
   /**
    * Asserts that the http query result contains expected header field.
    * If it isn't, an {@link AssertionError} is thrown with the given message.
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param request {@link TestRequest} to get result from.
    * @param name header field name
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertHttpIsHeader(TestRequest request, String name, String message){
+  public static void assertHttpIsHeader(String message, TestRequest request, String name){
     if (request.getResponse().getLastHeader(name) == null)
       Assert.fail(message);
   }
@@ -165,11 +165,11 @@ public class HttpAssert {
   /**
    * Asserts that the http query result doesn't contains expected header field.
    * If it is, an {@link AssertionError} is thrown with the given message.
+   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    * @param request {@link TestRequest} to get result from.
    * @param name header field name
-   * @param message the identifying message for the {@link AssertionError} (<code>null</code> okay)
    */
-  public static void assertHttpNoHeader(TestRequest request, String name, String message){
+  public static void assertHttpNoHeader(String message, TestRequest request, String name){
     Assert.assertNull(message, request.getResponse().getLastHeader(name));
   }
 
